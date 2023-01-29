@@ -64,15 +64,9 @@ fn main() {
         }
     };
     if recalculate() {
-        println!("{}\n(Accuracy verified)", finalize(result));
+        println!("{}\n(Accuracy verified)", finalize(result, instance.to));
     } else {
-        println!("This conversion may be inaccurate. Do you still want to output? ('y' or 'n') >");
-        match input_y_or_n().as_str() {
-            "y" => println!("{}\n(Possibly inaccurate)", finalize(result)),
-            "n" => println!("Canceled. If you don't mind, could you please bring this issue to the attention of the developer?"),
-            "error" => error(3),
-            _ => (),
-        }
+        println!("{}\n(Possibly inaccurate)", finalize(result, instance.to));
     }
 }
 
@@ -316,6 +310,11 @@ impl Number {
             output
         };
         let float_calculate = |number: f64| {
+            let error_modifier = |number: f64| {
+                const AMPLIFIER: f64 = 1000000000000000.0;
+                let output = (number * AMPLIFIER).round() / AMPLIFIER;
+                return output;
+            };
             let mut output = Vec::<String>::new();
             let mut integer = number.floor();
             if integer > number {
@@ -323,7 +322,7 @@ impl Number {
             } else {
                 ()
             }
-            let mut float = number - integer;
+            let mut float = error_modifier(number - integer);
             let integer = integer as u128;
             if integer >= 1 {
                 output = int_calculate(integer);
@@ -346,7 +345,13 @@ impl Number {
                 } else {
                     output.push((integer as u128).to_string());
                 }
-                float = decimal - integer;
+                if output.len() >= 100 {
+                    println!("The conversion was rounded up in the middle because it exceeded 100 decimal places.\nIt may be an irrational decimal or a cyclic decimal.");
+                    break;
+                } else {
+                    ()
+                }
+                float = error_modifier(decimal - integer);
             }
             if output[output.len() - 1] == ".".to_string() {
                 output.pop();
@@ -365,23 +370,15 @@ impl Number {
     }
 }
 
-fn finalize(vector: Vec<String>) -> String {
+fn finalize(vector: Vec<String>, to: u8) -> String {
     let mut string = String::new();
     for str in vector {
         string += str.as_str();
     }
+    string += " (";
+    string += to.to_string().as_str();
+    string += ")";
     return string;
-}
-
-fn input_y_or_n() -> String {
-    let mut y_or_n = String::new();
-    std::io::stdin().read_line(&mut y_or_n).unwrap();
-    y_or_n = y_or_n.replace("\r\n", "");
-    if y_or_n == "y".to_string() || y_or_n == "n".to_string() {
-        return y_or_n;
-    } else {
-        return "error".to_string();
-    }
 }
 
 fn error(errorcode: u8) {
@@ -389,7 +386,6 @@ fn error(errorcode: u8) {
         0 => println!("The string entered contains characters that cannot be used."),
         1 => println!("The second or third argument is invalid."),
         2 => println!("The first argument is invalid."),
-        3 => println!("A character other than 'y' or 'n' was entered."),
         _ => (),
     }
     std::process::exit(0);
